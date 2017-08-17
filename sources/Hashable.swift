@@ -1,5 +1,5 @@
 //
-//  BigUInt Hashing.swift
+//  Hashable.swift
 //  BigInt
 //
 //  Created by Károly Lőrentey on 2016-01-03.
@@ -13,8 +13,16 @@ extension BigUInt: SipHashable {
 
     /// Append this `BigUInt` to the specified hasher.
     public func appendHashes(to hasher: inout SipHasher) {
-        for i in 0 ..< count {
-            hasher.append(self[i])
+        for word in self.words {
+            hasher.append(word)
         }
+    }
+}
+
+extension BigInt: SipHashable {
+    /// Append this `BigInt` to the specified hasher.
+    public func appendHashes(to hasher: inout SipHasher) {
+        hasher.append(sign)
+        hasher.append(magnitude)
     }
 }

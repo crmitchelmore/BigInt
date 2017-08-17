@@ -13,18 +13,18 @@ import BigInt
 
 func factorial(_ n: Int) -> BigUInt {
     var fact = BigUInt(1)
-    for i in 1...n {
-        fact.multiply(byDigit: BigUInt.Digit(i))
+    for i in BigUInt.Word(1) ... BigUInt.Word(n) {
+        fact.multiply(byWord: i)
     }
     return fact
 }
 
 class ProfileTests: XCTestCase {
-    typealias Digit = BigUInt.Digit
+    typealias Word = BigUInt.Word
 
     func measure_(autostart: Bool = true, block: @escaping ()->Void) {
         var round = 0
-        self.measureMetrics(type(of: self).defaultPerformanceMetrics(), automaticallyStartMeasuring: autostart) {
+        self.measureMetrics(type(of: self).defaultPerformanceMetrics, automaticallyStartMeasuring: autostart) {
             print("Round \(round) started")
             block()
             round += 1
@@ -53,7 +53,7 @@ class ProfileTests: XCTestCase {
     func checkFactorial(fact: BigUInt, n: Int, file: StaticString = #file, line: UInt = #line) {
         var remaining = fact
         for i in 1...n {
-            let (div, mod) = remaining.divided(by: BigUInt(i))
+            let (div, mod) = remaining.quotientAndRemainder(dividingBy: BigUInt(i))
             XCTAssertEqual(mod, 0, "for divisor = \(i)", file: file, line: line)
             remaining = div
         }
@@ -64,7 +64,7 @@ class ProfileTests: XCTestCase {
         let n = 32767
         let fact = factorial(n)
         self.measure {
-            self.checkFactorial(fact: fact, n: n)
+            checkFactorial(fact: fact, n: n)
         }
     }
 
@@ -132,7 +132,7 @@ class ProfileTests: XCTestCase {
         let power = 14
 
         let fact = balancedFactorial(level: power)
-        print("Performing \(divisors.count) divisions with digit counts (\(fact.count) / (\(divisors[0].count)...\(divisors[divisors.count - 1].count))")
+        print("Performing \(divisors.count) divisions with digit counts (\(fact.words.count) / (\(divisors[0].words.count)...\(divisors[divisors.count - 1].words.count))")
         var divs: [BigUInt] = []
         var mods: [BigUInt] = []
         divs.reserveCapacity(divisors.count)
@@ -142,7 +142,7 @@ class ProfileTests: XCTestCase {
             mods.removeAll()
             self.startMeasuring()
             for divisor in divisors {
-                let (div, mod) = fact.divided(by: divisor)
+                let (div, mod) = fact.quotientAndRemainder(dividingBy: divisor)
                 divs.append(div)
                 mods.append(mod)
             }
@@ -154,19 +154,18 @@ class ProfileTests: XCTestCase {
         checkFactorial(fact: fact, n: ((1 as Int) << power) - 1)
     }
 
-    func testSquareRoot() {
-        var rnd = PseudoRandomNumbers(seed: 42)
-        func randomBigUInt() -> BigUInt {
-            let digits: [Digit] = (0 ..< 60).map { _ in rnd.next()! }
-            return BigUInt(digits)
-        }
-        let numbers = (0 ..< 1000).map { _ in randomBigUInt() }
+    func randomBigUInts(_ count: Int, seed: UInt, withMaxWords words: Int) -> [BigUInt] {
+        var rnd = PseudoRandomNumbers(seed: seed)
+        return (0 ..< count).map { _ in BigUInt(words: (0 ..< words).map { _ in rnd.next()! }) }
+    }
 
+    func testSquareRoot() {
+        let numbers = randomBigUInts(1000, seed: 42, withMaxWords: 60)
         var roots: [BigUInt] = []
         self.measure {
             roots.removeAll()
             for number in numbers {
-                let root = sqrt(number)
+                let root = number.squareRoot()
                 roots.append(root)
             }
         }
@@ -179,7 +178,7 @@ class ProfileTests: XCTestCase {
 
     func testModularExponentiation() {
         let m15 = (BigUInt(1) << 1279) - BigUInt(1)
-        let tests = (1..<25).map { _ in BigUInt.randomInteger(withMaximumWidth: 1279) }
+        let tests = randomBigUInts(24, seed: 42, withMaxWords: 19)
         self.measure {
             for test in tests {
                 assert(test < m15)
@@ -206,9 +205,8 @@ class ProfileTests: XCTestCase {
         self.measure {
             for i in limit - count ..< limit {
                 let bi = BigUInt(i)
-
-                let g1 = BigUInt.gcd(fibo[i], fibo[j])
-                let g2 = Int(BigUInt.gcd(bi, bj)[0])
+                let g1 = fibo[i].greatestCommonDivisor(with: fibo[j])
+                let g2 = Int(bi.greatestCommonDivisor(with: bj).words[0])
                 XCTAssertEqual(g1, fibo[g2])
             }
         }
